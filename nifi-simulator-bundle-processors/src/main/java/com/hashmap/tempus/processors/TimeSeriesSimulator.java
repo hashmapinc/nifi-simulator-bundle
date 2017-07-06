@@ -33,12 +33,10 @@ import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.joda.time.LocalDateTime;
-import scala.Function0;
 import scala.Some;
 import scala.Tuple3;
 import scala.collection.Iterable;
 import scala.collection.JavaConverters;
-import scala.runtime.AbstractFunction0;
 
 import java.util.*;
 
@@ -73,11 +71,11 @@ public class TimeSeriesSimulator extends AbstractProcessor {
 
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(SIMULATOR_CONFIG);
         this.descriptors = Collections.unmodifiableList(descriptors);
 
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(SUCCESS);
         relationships.add(FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
@@ -107,20 +105,17 @@ public class TimeSeriesSimulator extends AbstractProcessor {
 
         Configuration config = SimUtils.getConfiguration(configText);
 
+        // Get the time Values for the current time
         Iterable<Tuple3<String, LocalDateTime, Object>> data = SimUtils.getTimeValue(config.timeSeries());
 
-        Function0<String> emptyValue = new AbstractFunction0<String>() {
-            @Override
-            public String apply() {
-                return "";
-            }
-        };
-
+        // Convert the Scala Iterable to a Java one
         java.lang.Iterable<Tuple3<String, LocalDateTime, Object>> values = JavaConverters.asJavaIterableConverter(data).asJava();
+
         StringBuilder dataValueString = new StringBuilder();
 
+        // Build the flow file string
         values.forEach(tv -> {
-            String dataValue = ((Some)tv._3()).orElse(emptyValue).toString();
+            String dataValue = ((Some)tv._3()).get().toString();
             dataValueString.append(tv._1()).append(",").append(tv._2().toString()).append(",").append(dataValue);
             dataValueString.append(System.lineSeparator());
         });

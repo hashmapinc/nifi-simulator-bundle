@@ -1,4 +1,4 @@
-<img src="https://hashmapinc.github.io/hashmap.github.io/images/tempus/Tempus_Black.png" width="200" height="245" alt="Hashmap, Inc Tempus"/>
+<img src="https://github.com/hashmapinc/hashmap.github.io/blob/master/images/tempus/Tempus_Logo_Black_with_TagLine.png" width="920" height="245" alt="Hashmap, Inc Tempus"/>
 
 [![Build Status](https://travis-ci.org/hashmapinc/nifi-simulator-bundle.svg?branch=master)](https://travis-ci.org/hashmapinc/nifi-simulator-bundle)
 [![License](http://img.shields.io/:license-Apache%202-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)

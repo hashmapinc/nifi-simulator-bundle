@@ -6,14 +6,14 @@
 # nifi-simulator-bundle
 
 ## Overview
-This is a processor that wraps the great work done by the [TSimulus](https://github.com/cetic/TSimulus) project. This is essentially a utility that allows for generating random, realistic time series data. This processor came out of a need not to just generate random data that looked like a sensor, but random data that acts like a real sensor. This allows a developer to test out far more of a system than just the throughput. 
+The Apache NiFi Simulator Bundle is a processor that wraps the great work done by the [TSimulus](https://github.com/cetic/TSimulus) project and provides a utility that allows for generating random, realistic time series data. This NiFi processor came out of a need not to just generate random data that looked like a sensor, but random data that acts like a real sensor. This allows a developer to test out far more of a system than just the throughput. 
 
-The system is driven by a configuration file that defines the shape (patterns, noise, cycles, etc...) and then converts this data into a time series value. 
+The system is driven by a configuration file that defines the shape (patterns, noise, cycles, etc.) and then converts this data into a time series value. 
 
-Additionally this processor contains logic that allows the simulation to be run in real time, further making the simulation more realistic. 
+Additionally, this processor contains logic that allows the simulation to be run in real time, further making the simulation more realistic. 
 
-## Processor Useage
-As mentioned in the Overview section, this processor wraps TSimulus. It does include the facility to generate the data in real time, however. Additionally, the processor outputs the data to a flow file in a CSV format. Each exported value will be a new line. 
+## Processor Usage
+As mentioned in the Overview section, this processor wraps TSimulus, however, It does include the facility to generate the data in real time. Additionally, the processor outputs the data to a NiFi flow file in a CSV format. Each exported value will be a new line. 
 
 The flowfile will be output in the following format:
 
@@ -25,7 +25,7 @@ There are 2 properties to the processor.
 1. *Simulator Configuration File* - This is the location on disk where the TSimulus configuration file is located
 2. *Print Header* - This is a boolean value which will indicate whether or not the **name,ts,value** header is printed in the flowfile
 
-The intention of this processor is to be used along with the new Record-based processors in Nifi. A suggestion would be to use the following Avro schema in the Schema Registry controller service and then use the record processors to further operate on the data.
+The intention of this processor is to be used along with the new Record-Based processors in Apache NiFi. A suggestion would be to use the following Avro schema in the Schema Registry controller service and then use the record processors to further operate on the data.
 
     {
       "name": "simulatorFormat",
@@ -39,7 +39,7 @@ The intention of this processor is to be used along with the new Record-based pr
     }
 
 ## Configuration Documentation
-The configuration file documenataion is located [here](http://tsimulus.readthedocs.io/en/latest/generators.html#configuration-document). This will explain how to build the JSON configuration document. NOTE: One caveat that needs to be mentioned, the configuration JSON document contains from and to elements which define the bounds of the set. While the simulator will still run when the simulation is run outside of those bounds, it is wise to set the to element to some point in the future, as the simulation tends to generate more realistic time data when the timestamp that data is being generated for lies within the bounds of the time window.
+The configuration file documentation is located [here](http://tsimulus.readthedocs.io/en/latest/generators.html#configuration-document). This will explain how to build the JSON configuration document. NOTE: One caveat that needs to be mentioned, the configuration JSON document contains from and to elements which define the bounds of the set. While the simulator will still run when the simulation is run outside of those bounds, it is wise to set the to element to some point in the future, as the simulation tends to generate more realistic time data when the timestamp that data is being generated for lies within the bounds of the time window.
 
 ## Getting Started
 NOTE: The processor was built against the Apache NiFi 1.3 Maven Archtype. 
@@ -66,6 +66,6 @@ A Build success message should appear
     [INFO] Final Memory: 20M/377M
     [INFO] ------------------------------------------------------------------------
     
-Navigate to the *nifi-simulator-bundle-nar/target* directory and copy the nifi-simulator-bundle-nar-1.0-SNAPSHOT.nar file to the Apache Nifi */lib* folder. 
+Navigate to the *nifi-simulator-bundle-nar/target* directory and copy the nifi-simulator-bundle-nar-1.0-SNAPSHOT.nar file to the Apache NiFi */lib* folder. 
 
-Restart Nifi.
+Restart NiFi.

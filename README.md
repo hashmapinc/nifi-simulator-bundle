@@ -1,3 +1,5 @@
+<img src="https://hashmapinc.github.io/hashmap.github.io/images/tempus/Tempus_Black.png" width="250" height="306" alt="Hashmap, Inc Tempus"/>
+
 # nifi-simulator-bundle
 
 ## Overview

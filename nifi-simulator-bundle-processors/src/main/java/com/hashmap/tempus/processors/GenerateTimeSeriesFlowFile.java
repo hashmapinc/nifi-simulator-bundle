@@ -22,17 +22,19 @@ import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
+import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDateTime;
 import scala.Some;
 import scala.Tuple3;
 import scala.collection.JavaConverters;
-
 import java.util.*;
 
 @Tags({"Simulator, Timeseries, IOT, Testing"})
@@ -56,9 +58,30 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
             .displayName("Print Header")
             .description("Directs the processor whether to print a header line or not.")
             .required(true)
+            .allowableValues("true","false")
             .defaultValue("false")
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
+
+    public static final PropertyDescriptor LONG_TIMESTAMP = new PropertyDescriptor
+            .Builder().name("LONG_TIMESTAMP")
+            .displayName("Use Long Timestamp")
+            .description("If True it will use number of milliseconds from the epoch, if not it will use an ISO8601 compatable timestamp.")
+            .required(true)
+            .allowableValues("true","false")
+            .defaultValue("false")
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .build();
+    public static final PropertyDescriptor TIMEZONE = new PropertyDescriptor
+            .Builder().name("TIMEZONE")
+            .displayName("Timezone")
+            .description("The timezone that the data will be generated in")
+            .required(true)
+            .defaultValue("America/Chicago")
+            .allowableValues(DateTimeZone.getAvailableIDs())
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+
 
     public static final Relationship SUCCESS = new Relationship.Builder()
             .name("Success")
@@ -74,6 +97,8 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(SIMULATOR_CONFIG);
         descriptors.add(PRINT_HEADER);
+        descriptors.add(LONG_TIMESTAMP);
+        descriptors.add(TIMEZONE);
         this.descriptors = Collections.unmodifiableList(descriptors);
 
         final Set<Relationship> relationships = new HashSet<>();
@@ -112,7 +137,7 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
             flowFile = session.create();
 
         // Get the data
-        String data = generateData(context.getProperty(PRINT_HEADER).asBoolean());
+        String data = generateData(context.getProperty(PRINT_HEADER).asBoolean(), context.getProperty(LONG_TIMESTAMP).asBoolean(), context.getProperty(TIMEZONE).toString());
 
         // Write the results back out to flow file
         try{
@@ -142,9 +167,10 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
     }
 
     // Actually do the data generation via TSimulus
-    private String generateData(boolean printHeader)
+    private String generateData(boolean printHeader, boolean longTimestamp, String Timezone)
     {
         LocalDateTime queryTime = LocalDateTime.now();
+
         if(isTest)
             queryTime = LocalDateTime.parse("2016-01-01T00:00:00.000");
 
@@ -162,7 +188,12 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
 
         generatedValues.forEach(tv -> {
             String dataValue = ((Some)tv._3()).get().toString();
-            dataValueString.append(tv._1()).append(",").append(tv._2().toString()).append(",").append(dataValue);
+            String ts = tv._2().toString();
+            if (longTimestamp){
+                DateTime localTime = tv._2().toDateTime(DateTimeZone.forID(Timezone));
+                ts = String.valueOf(localTime.getMillis());
+            }
+            dataValueString.append(tv._1()).append(",").append(ts).append(",").append(dataValue);
             dataValueString.append(System.lineSeparator());
         });
 

@@ -21,10 +21,13 @@ The flowfile will be output in the following format:
 |-------|-----------------------|------------------|
 |torque |2017-07-06T21:58:08.957|0.6081689813614467|
 
-There are 2 properties to the processor.
+There are 4 properties to the processor.
 1. *Simulator Configuration File* - This is the location on disk where the TSimulus configuration file is located
 2. *Print Header* - This is a boolean value which will indicate whether or not the **name,ts,value** header is printed in the flowfile
-
+3. *Use Long Timestamp* - This is a boolean value which will indicate whether or not the time stamp will be represented as millisecond from the epoch (if true), or
+an ISO8601 compliant time zone.
+4. *Timezone* - This is used to make a faithful conversion of the timestamp to milliseconds from the epoch. When the long timestamp option is used, this will direct the simulator how to configure
+the conversion. 
 The intention of this processor is to be used along with the new Record-Based processors in Apache NiFi. A suggestion would be to use the following Avro schema in the Schema Registry controller service and then use the record processors to further operate on the data.
 
     {

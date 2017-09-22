@@ -56,6 +56,7 @@ public class GenerateTimeSeriesFlowfileTest {
         TestRunner runner = TestRunners.newTestRunner(new GenerateTimeSeriesFlowFile());
         runner.setProperty(GenerateTimeSeriesFlowFile.PRINT_HEADER, "false");
         runner.setProperty(GenerateTimeSeriesFlowFile.SIMULATOR_CONFIG, getClass().getResource("/configs/unitTestConfig.json").getPath());
+        runner.setProperty(GenerateTimeSeriesFlowFile.DATA_FORMAT, "CSV");
         runner.run();
         runner.assertTransferCount(GenerateTimeSeriesFlowFile.SUCCESS, 1);
         runner.getFlowFilesForRelationship(GenerateTimeSeriesFlowFile.SUCCESS).get(0).assertContentEquals("test,2016-01-01T00:00:00.000,17.5");
@@ -66,6 +67,7 @@ public class GenerateTimeSeriesFlowfileTest {
         TestRunner runner = TestRunners.newTestRunner(new GenerateTimeSeriesFlowFile());
         runner.setProperty(GenerateTimeSeriesFlowFile.PRINT_HEADER, "true");
         runner.setProperty(GenerateTimeSeriesFlowFile.SIMULATOR_CONFIG, getClass().getResource("/configs/unitTestConfig.json").getPath());
+        runner.setProperty(GenerateTimeSeriesFlowFile.DATA_FORMAT, "CSV");
         runner.run();
         runner.assertTransferCount(GenerateTimeSeriesFlowFile.SUCCESS, 1);
         runner.getFlowFilesForRelationship(GenerateTimeSeriesFlowFile.SUCCESS).get(0).assertContentEquals("name, ts, value" + System.lineSeparator() + "test,2016-01-01T00:00:00.000,17.5");

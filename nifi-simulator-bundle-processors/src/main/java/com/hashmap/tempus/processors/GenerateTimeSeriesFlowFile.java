@@ -36,6 +36,10 @@ import scala.Some;
 import scala.Tuple3;
 import scala.collection.JavaConverters;
 import java.util.*;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 
 @Tags({"Simulator, Timeseries, IOT, Testing"})
 @InputRequirement(InputRequirement.Requirement.INPUT_FORBIDDEN)
@@ -44,6 +48,7 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
 
     private Configuration simConfig = null;
     private boolean isTest = false;
+    private ObjectMapper mapper = new ObjectMapper();
 
     public static final PropertyDescriptor SIMULATOR_CONFIG = new PropertyDescriptor
             .Builder().name("SIMULATOR_CONFIG")
@@ -57,10 +62,20 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
             .Builder().name("PRINT_HEADER")
             .displayName("Print Header")
             .description("Directs the processor whether to print a header line or not.")
-            .required(true)
+            .required(false)
             .allowableValues("true","false")
             .defaultValue("false")
-            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+
+    public static final PropertyDescriptor DATA_FORMAT = new PropertyDescriptor
+            .Builder().name("DATA_FORMAT")
+            .displayName("Data Format")
+            .description("The format the data should be in, either CSV or JSON")
+            .required(true)
+            .allowableValues("JSON","CSV")
+            .defaultValue("JSON")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor LONG_TIMESTAMP = new PropertyDescriptor
@@ -94,11 +109,13 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
 
     @Override
     protected void init(final ProcessorInitializationContext context) {
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_ABSENT);
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(SIMULATOR_CONFIG);
         descriptors.add(PRINT_HEADER);
         descriptors.add(LONG_TIMESTAMP);
         descriptors.add(TIMEZONE);
+        descriptors.add(DATA_FORMAT);
         this.descriptors = Collections.unmodifiableList(descriptors);
 
         final Set<Relationship> relationships = new HashSet<>();
@@ -137,7 +154,7 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
             flowFile = session.create();
 
         // Get the data
-        String data = generateData(context.getProperty(PRINT_HEADER).asBoolean(), context.getProperty(LONG_TIMESTAMP).asBoolean(), context.getProperty(TIMEZONE).toString());
+        String data = generateData(context.getProperty(PRINT_HEADER).asBoolean(), context.getProperty(LONG_TIMESTAMP).asBoolean(), context.getProperty(TIMEZONE).toString(), context.getProperty(DATA_FORMAT).getValue());
 
         // Write the results back out to flow file
         try{
@@ -167,7 +184,7 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
     }
 
     // Actually do the data generation via TSimulus
-    private String generateData(boolean printHeader, boolean longTimestamp, String Timezone)
+    private String generateData(boolean printHeader, boolean longTimestamp, String Timezone, String dataFormat)
     {
         LocalDateTime queryTime = LocalDateTime.now();
 
@@ -180,7 +197,40 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
         // Convert the Scala Iterable to a Java one
         Iterable<Tuple3<String, LocalDateTime, Object>> generatedValues = JavaConverters.asJavaIterableConverter(data).asJava();
 
-        // Build the flow file string
+        String resultString = "";
+
+        if (dataFormat.equals("CSV")){
+            resultString = createCsv(printHeader, longTimestamp, Timezone, generatedValues);
+        }
+        else if (dataFormat.equals("JSON")){
+            resultString = generateJson(longTimestamp, Timezone, generatedValues);
+        }
+
+        return resultString;
+    }
+
+    private String generateJson(boolean longTimestamp, String Timezone, Iterable<Tuple3<String, LocalDateTime, Object>> generatedValues){
+        DataValue value = new DataValue();
+        generatedValues.forEach(tv -> {
+            String dataValue = ((Some)tv._3()).get().toString();
+            String ts = tv._2().toString();
+            if (longTimestamp){
+                DateTime localTime = tv._2().toDateTime(DateTimeZone.forID(Timezone));
+                ts = String.valueOf(localTime.getMillis());
+            }
+            value.setTimeStamp(ts);
+            value.addValue(tv._1(),dataValue);
+        });
+        String output = "";
+        try {
+            output = mapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            getLogger().error("Error generating JSON: " + e.getMessage());
+        }
+        return output;
+    }
+
+    private String createCsv(boolean printHeader, boolean longTimestamp, String Timezone, Iterable<Tuple3<String, LocalDateTime, Object>> generatedValues){
         StringBuilder dataValueString = new StringBuilder();
 
         if (printHeader)

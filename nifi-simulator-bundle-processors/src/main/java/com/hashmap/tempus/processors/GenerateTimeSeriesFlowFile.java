@@ -18,11 +18,14 @@ package com.hashmap.tempus.processors;
  */
 
 import be.cetic.tsimulus.config.Configuration;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
-import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.logging.ComponentLog;
@@ -35,10 +38,9 @@ import org.joda.time.LocalDateTime;
 import scala.Some;
 import scala.Tuple3;
 import scala.collection.JavaConverters;
+
+import javax.xml.crypto.Data;
 import java.util.*;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 
 @Tags({"Simulator, Timeseries, IOT, Testing"})
@@ -56,6 +58,16 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
             .description("The JSON configuration file to use to configure TSimulus")
             .required(true)
             .addValidator(StandardValidators.FILE_EXISTS_VALIDATOR)
+            .build();
+
+    public static final PropertyDescriptor JSON_DEVICE_TYPE = new PropertyDescriptor
+            .Builder().name("JSON_DEVICE_TYPE")
+            .displayName("Tempus JSON Device Type")
+            .description("When JSON is selected, whether the processor should output the data in the Gateway message format or the device message format. If Gateway, Device Name is required.")
+            .required(false)
+            .allowableValues("Gateway", "Device")
+            .defaultValue("Device")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor PRINT_HEADER = new PropertyDescriptor
@@ -87,6 +99,7 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
             .defaultValue("false")
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
+
     public static final PropertyDescriptor TIMEZONE = new PropertyDescriptor
             .Builder().name("TIMEZONE")
             .displayName("Timezone")
@@ -97,6 +110,13 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
+    public static final PropertyDescriptor DEVICE_NAME = new PropertyDescriptor
+            .Builder().name("DEVICE_NAME")
+            .displayName("Device Name")
+            .description("In Gateway mode, the name of the device that will be used as the identity.")
+            .required(false)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
 
     public static final Relationship SUCCESS = new Relationship.Builder()
             .name("Success")
@@ -109,13 +129,15 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
 
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        mapper.setSerializationInclusion(JsonInclude.Include.NON_ABSENT);
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(SIMULATOR_CONFIG);
         descriptors.add(PRINT_HEADER);
         descriptors.add(LONG_TIMESTAMP);
         descriptors.add(TIMEZONE);
         descriptors.add(DATA_FORMAT);
+        descriptors.add(DEVICE_NAME);
+        descriptors.add(JSON_DEVICE_TYPE);
         this.descriptors = Collections.unmodifiableList(descriptors);
 
         final Set<Relationship> relationships = new HashSet<>();
@@ -154,7 +176,8 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
             flowFile = session.create();
 
         // Get the data
-        String data = generateData(context.getProperty(PRINT_HEADER).asBoolean(), context.getProperty(LONG_TIMESTAMP).asBoolean(), context.getProperty(TIMEZONE).toString(), context.getProperty(DATA_FORMAT).getValue());
+        String data = generateData(context.getProperty(PRINT_HEADER).asBoolean(), context.getProperty(LONG_TIMESTAMP).asBoolean(), context.getProperty(TIMEZONE).toString(), context.getProperty(DATA_FORMAT).getValue(),
+                context.getProperty(JSON_DEVICE_TYPE).getValue(),context.getProperty(DEVICE_NAME).getValue());
 
         // Write the results back out to flow file
         try{
@@ -184,7 +207,7 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
     }
 
     // Actually do the data generation via TSimulus
-    private String generateData(boolean printHeader, boolean longTimestamp, String Timezone, String dataFormat)
+    private String generateData(boolean printHeader, boolean longTimestamp, String Timezone, String dataFormat, String jsonDeviceType, String deviceName)
     {
         LocalDateTime queryTime = LocalDateTime.now();
 
@@ -203,27 +226,51 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
             resultString = createCsv(printHeader, longTimestamp, Timezone, generatedValues);
         }
         else if (dataFormat.equals("JSON")){
-            resultString = generateJson(longTimestamp, Timezone, generatedValues);
+            boolean isGateway = false;
+
+            if (jsonDeviceType.equals("Gateway")) {
+                isGateway = true;
+            }
+
+            resultString = generateJson(longTimestamp, Timezone, generatedValues, isGateway, deviceName);
         }
 
         return resultString;
     }
 
-    private String generateJson(boolean longTimestamp, String Timezone, Iterable<Tuple3<String, LocalDateTime, Object>> generatedValues){
+    private String generateJson(boolean longTimestamp, String Timezone, Iterable<Tuple3<String, LocalDateTime, Object>> generatedValues, boolean isGateway, String deviceName){
         DataValue value = new DataValue();
+
         generatedValues.forEach(tv -> {
             String dataValue = ((Some)tv._3()).get().toString();
             String ts = tv._2().toString();
+
             if (longTimestamp){
                 DateTime localTime = tv._2().toDateTime(DateTimeZone.forID(Timezone));
                 ts = String.valueOf(localTime.getMillis());
             }
+
             value.setTimeStamp(ts);
             value.addValue(tv._1(),dataValue);
+
         });
         String output = "";
+
         try {
-            output = mapper.writeValueAsString(value);
+
+            if (isGateway){
+                GatewayValue gwValue = new GatewayValue();
+                gwValue.setDeviceName(deviceName);
+                gwValue.addDataValue(value);
+                ObjectMapper gwMapper = new ObjectMapper();
+                SimpleModule module = new SimpleModule();
+                module.addSerializer(GatewayValue.class, new GatewayValueSerializer());
+                gwMapper.registerModule(module);
+
+                return gwMapper.writeValueAsString(gwValue);
+            }
+            return mapper.writeValueAsString(value);
+
         } catch (JsonProcessingException e) {
             getLogger().error("Error generating JSON: " + e.getMessage());
         }

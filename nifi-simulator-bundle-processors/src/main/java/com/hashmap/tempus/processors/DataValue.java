@@ -10,7 +10,7 @@ public class DataValue {
     private String timeStamp;
 
     @JsonProperty(index = 2)
-    private Map<String, String> values;
+    private Map<String, Object> values;
 
 
     public String getTimeStamp(){
@@ -29,7 +29,7 @@ public class DataValue {
         this.timeStamp = timeStamp;
     }
 
-    public void addValue(String key, String value){
+    public void addValue(String key, Object value){
         values.put(key, value);
     }
 

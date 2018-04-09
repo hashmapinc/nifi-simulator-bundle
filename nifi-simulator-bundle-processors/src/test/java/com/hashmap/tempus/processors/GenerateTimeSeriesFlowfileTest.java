@@ -66,6 +66,6 @@ public class GenerateTimeSeriesFlowfileTest {
         runner.setProperty(GenerateTimeSeriesFlowFile.JSON_DEVICE_TYPE, "Gateway");
         runner.run();
         runner.assertTransferCount(GenerateTimeSeriesFlowFile.SUCCESS, 1);
-        runner.getFlowFilesForRelationship(GenerateTimeSeriesFlowFile.SUCCESS).get(0).assertContentEquals("{\"test\":[{\"values\":{\"test\":\"17.5\"},\"ts\":\"1451628000000\"}]}");
+        runner.getFlowFilesForRelationship(GenerateTimeSeriesFlowFile.SUCCESS).get(0).assertContentEquals("{\"test\":[{\"values\":{\"test\":17.5},\"ts\":\"1451628000000\"}]}");
     }
 }

@@ -242,7 +242,7 @@ public class GenerateTimeSeriesFlowFile extends AbstractProcessor {
         DataValue value = new DataValue();
 
         generatedValues.forEach(tv -> {
-            String dataValue = ((Some)tv._3()).get().toString();
+            Object dataValue = ((Some)tv._3()).get();
             String ts = tv._2().toString();
 
             if (longTimestamp){
